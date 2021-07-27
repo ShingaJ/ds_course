@@ -24,7 +24,8 @@ In this study, (https://towardsdatascience.com/employee-retention-using-machine-
 I will use the data from  https://www.kaggle.com/pavansubhasht/ibm-hr-analytics-attrition-dataset
 
 
-#**libraries**
+**libraries**
+```{r}
 
 library("dplyr") 
 library("ggplot2")
@@ -38,35 +39,34 @@ library("corrgram")
 library("gridExtra")
 library("grid")
 
-
+```
 2. **Data exploration**
 
-The experiments will be conducted on a data set of employees. 
-The data set is publicly available and can be found at https://www.kaggle.com/pavansubhasht/ibm-hr-analytics-attrition-dataset.
-
+The experiments will be conducted on a data set of employees. The data set is publicly available and can be found at https://www.kaggle.com/pavansubhasht/ibm-hr-analytics-attrition-dataset.
+```{r}
 data <- read.csv("WA_Fn-UseC_-HR-Employee-Attrition.csv")
 head(data)
-
+```
 ## Summary
-
+```{r}
 summary(data)
-
+```
 ## Fix Age column
-
+```{r}
 colnames(data)[1] <- "Age"
-
+```
 ## Dataset is made up of the following rows and columns
-
+```{r}
 str(data)
 cat("Data Set has ",dim(data)[1], " Rows and ", dim(data)[2], " Columns" )
-
+```
 ## Checking missing and duplicate values
-
+```{r}
 sum(is.na(duplicated(data)))
+```
+3. **Data Visualization**
 
-#3. **Data Visualization**
-
-
+```{r}
 data %>%
   group_by(Attrition) %>%
   tally() %>%
@@ -76,19 +76,18 @@ data %>%
   labs(x="Attrition", y="Count of Attriation")+
   ggtitle("Attrition")+
   geom_text(aes(label = n), vjust = -0.5, position = position_dodge(0.9))
-
-
-##b) Checking employees status(attrition) per job title
-
+```
+b) Checking employees status(attrition) per job title
+```{r}
 ggplot(data, aes(JobRole, fill=Attrition)) +
   geom_bar(aes(y=(..count..)/sum(..count..)), position="dodge") +
   xlab("Job Role") +
   ylab("Percentage")
+```
 
+c) Income, jobRole, previous percentage salary hike and service years may affect decision for employees to leave. 
 
-##c) Income, jobRole, previous percentage salary hike and service years may affect decision for employees to leave. 
-
-
+```{r}
 ggplot(filter(data, (PercentSalaryHike >= 11) & (YearsAtCompany >= 2) & (YearsAtCompany <= 5) & (JobLevel < 3)),
        aes(x=factor(JobRole), y=MonthlyIncome, color=factor(Attrition))) +
   geom_boxplot() +
@@ -97,57 +96,59 @@ ggplot(filter(data, (PercentSalaryHike >= 11) & (YearsAtCompany >= 2) & (YearsAt
   scale_fill_discrete(guide=guide_legend(title="Attrition")) +
   theme_bw() +
   theme(text=element_text(size=13), legend.position="top")
+```
 
-
-##d) Employees grid graph in relation with Years of service, Growth, Manager, Income and salary increase.
-
+d) Employees grid graph in relation with Years of service, Growth, Manager, Income and salary increase.
+```{r}
 EmployeesYearOfService <- ggplot(data,aes(YearsAtCompany,fill = Attrition))+geom_bar()
 EmployeesGrowth <- ggplot(data,aes(YearsSinceLastPromotion,fill = Attrition))+geom_bar()
 EmployeesManager <- ggplot(data,aes(YearsWithCurrManager,fill = Attrition))+geom_bar()
 EmployeeSalIncrease <- ggplot(data,aes(PercentSalaryHike,Attrition))+geom_point(size=4,alpha = 0.01)
 EmployeesIncome <- ggplot(data,aes(MonthlyIncome,fill=Attrition))+geom_density()
 gr <- grid.arrange(EmployeesYearOfService,EmployeesGrowth,EmployeesManager,EmployeeSalIncrease,EmployeesIncome,ncol=2,top = "Grid graphs")
+```
 
+```{r}
 gr
-
+```
 
 ## data correlation
 
 ## remove near zero variables
 
-
+```{r}
 near_Zero_variables <- names(data[, nearZeroVar(data)]) %>% print()
 data <- data %>% select(-one_of(near_Zero_variables))
-
+```
 corrgram(data, lower.panel = panel.shade, upper.panel = panel.pie, text.panel = panel.txt, main = "Corrgram of all numeric  variables")
 
-##From this,  I will use algorithms like rf or XGBoost to build a model that can predict in fact which employees are most likely to leave in the future 
+From this,  I will use algorithms like rf or XGBoost to build a model that can predict in fact which employees are most likely to leave in the future 
 
 4. **Data Preparation and Partitioning** 
 
 ## convert certain integer variable to factor variable.
 
-
+```{r}
 factor_variables <- c("Education", "EnvironmentSatisfaction", "JobInvolvement", "JobLevel", "JobSatisfaction", "NumCompaniesWorked", "PerformanceRating", "RelationshipSatisfaction", "StockOptionLevel")
 data[, factor_variables] <- lapply((data[, factor_variables]), as.factor)
 data <- data %>% mutate_if(is.character, as.factor)
 str(data)
+```
 
+Before modeling, first I use `set.seed(1)` and partition my data into train and test sets, which will be used to model and produce predictions. 
+Then towards the end of this report, I will show the final model performance on the validation set. 
 
-##Before modeling, first I use `set.seed(1)` and partition my data into train and test sets, which will be used to model and produce predictions. 
-##Then towards the end of this report, I will show the final model performance on the validation set. 
-
-
+```{r}
 set.seed(1)
 train_index <- createDataPartition(data$Attrition , times =1, p = 0.7, list = FALSE)
 train <- data[train_index,] 
 test <- data[-train_index,]
-
-#5. **Modeling, Tuning & Evaluation**
+```
+5. **Modeling, Tuning & Evaluation**
 
 ##training control to tune 
 
-
+```{r}
 ##random forest model 
 control <- trainControl(method="repeatedcv", number=3, repeats=1)
 random_forest_model <- train(dplyr::select(data, -Attrition), 
@@ -161,11 +162,11 @@ prediction_rfm <- predict(random_forest_model, newdata=select(test, -Attrition))
 confusionMatrix(prediction_rfm,reference=test$Attrition,positive="Yes")
 
 imp <- varImp(random_forest_model, scale=FALSE)
-
-#6. **Conclusion**
-
-##We can see that Salary has big impact in employees attriction
+```
+6. **Conclusion**
+We can see that Salary has big impact in employees attrition
+```{r}
 plot(imp)
-
+```
 
 
